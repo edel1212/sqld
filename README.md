@@ -328,7 +328,9 @@
 ### SQL 종류
 
 - **DDL :: 포인트는 모든** 명령어가 **오토 커밋**된다
-    - Create, Alter, Drop, Rename, Truncate( delete와 유사 하나 메모리까지 날리고 오토 커밋임 )
+    - Create, Alter, Drop, Rename, TRUNCATE
+        - TRUNCATE 사용법 ( delete와 유사 하나 메모리까지 날림)
+            - TRUNCATE FROM 테이블명;
 
 ### SELECT 문의 구조
 
@@ -377,6 +379,14 @@ ORDER BY {정렬 컬럼}
 
 - _S% 이름 둘째가 S로 시작하는거
 - __S__ 가운데가 S이면서 5글자
+
+### 외래키
+
+- 외래키는 여러개 설정 가능
+- NULL가능
+- 부모 데이터가 있어도 **자식 데이터는** 삭제 가능하다.
+    - 오히려 **부모가 엮여 있을 경우 지워지지 않는다 ( 가장의 무게.. )**
+        - Cannot delete or update a parent row: a foreign key constraint fails
 
 ## Join
 
@@ -510,66 +520,114 @@ ORDER BY {정렬 컬럼}
 
 # SQL - 활용
 
-- 서브 쿼리
-    - 주의 사항 : 서브쿼리 내부에서 Order By 사용이 불가능함 에러발생!!
-    - 단일행
-        - =, <>, >, >=, < ,<= :: 와 같이 단일된 값으로 조건이 가능한 애들사용
-    - 다중행
-        - 서브쿼리 결과가 여러 행으로 리턴 될 경우
-            - IN : 해당 절에 값이 같은 애를 찾음
-            - > ANY : 최소값을 반환
-            - < ANY : 최대값을 반환
-            - < ALL : 최소값을 반환
-            - > ALL : 최대값을 반환
-        - 다중 행은 당연히 equals비교가 불가능하다! 그렇기에 서브 쿼리 내에서 조인을 통해 값을 정제 후 사용
+### Where절 서브 쿼리
 
-- 인라인 뷰 서브쿼리
-    - Where 절에서 사용하는 것이 아닌 From 절에서 사용하여 서브 쿼리로 사용하는 것
-        - 따라서 조회하려는 대상이 함수 형식이라면 Alisa를 사용해 줘야함
-        - 테이블 또한 Alias로 지정해 줘야한다
+- **단일행** 경우
+    - **단일된** 값이므로 **=, <>, >, >=, <, <=** 와 같은 **조건이 사용 가능**한 경우
+- **다중행** 경우
+    - 서브 쿼리 결과가 **여러 행일** 경우
+        - IN() : 해당 절에 값이 같은 애를 찾음
+        - > ANY() : **최소값**을 반환
+        - < ANY() : **최대값**을 반환
+        - < ALL() : **최소값**을 반환
+        - > ALL() : **최대값**을 반환
+    - 다중 행은 당연히 EQUI 비교가 불가능하다, 그렇기에 서브 쿼리 내에서 조인을 통해 값을 정제 후 사용하는 경우가 많음
 
-- 스칼라 서브쿼리
-    - Select 문 내에서 서브 쿼리를 사용하는 것
-    - 당연히 단일 행이 나와야한다 왜냐면 Select에서 값이 나와야한는걸!!
-        - 따라서 WHERE 절은 필수이며 메인 쿼리 Where 절의 비교대상과 같은 값으로 사용해서 단일 값 뽑자
-            - Select
+### 인라인 뷰 서브쿼리
 
-ENPNO
+- **From 절**에서 사용하여 **서브 쿼리로 사용**하는 것
+    - 따라서 조회 하려는 대상이 **함수 형식이라면 Alisa를 지정해** 줘야함
+        
+        ```sql
+        SELECT
+        	T1.NAME , T2.HAP
+        FROM EMP T1
+        , (
+        	## SUM은 함수이므로 Alias 지정
+        		SELECT SUM(SAL) AS HAP FROM DEP
+        	) T2;
+        ```
+        
+    - 테이블 또한 Alias로 지정해 줘야한다
 
-, ( Select
+### 스칼라 서브쿼리
 
-DNAME
+- **Select 문 내**에서 **서브 쿼리를 사용**하는 것
+- 당연히 **단일 행이 나와야한다** 왜냐면 Select Row에는 **항상 단일 행이 나오기 때문**임
+    - 따라서 **WHERE 절은 필수**이며 메인 쿼리 Where 절의 비교 대상과 같은 값으로 사용해서 단일 값 뽑자
+        
+        ```sql
+        SELECT 
+        	ENPNO
+        	, ( Select
+        				DNAME
+        		FROM DEPT D
+        			WHERE D.DEPTNO = E.DEPTNO ) AS DNAME
+        FROM EMP E
+        	WHERE DEPTNO = 10;
+        ```
+        
 
-FROM DEPT D
+### 집합 연산자
 
-WHERE D.DEPTNO = E.DEPTNO ) AS DNAME
+- 종류
+    - UNION
+        - SQL 결과의 **합집합** ( **중복 제거** )
+    - UNION ALL
+        - SQL 결과의 **합집합** ( **중복 미 제거** )
+    - INTERSECT
+        - SQL 결과의 **교집합 ( 중복된 결과의 행을 하나의 행으로 반환  )**
+            - 두 테이블사이 같은 ROW만 찾아서 반환
+        
+        ```sql
+        SELECT 
+        	employee_id, job_id
+        FROM employees
+        
+        # 차집합
+        INTERSECT
+        
+        SELECT
+        	employee_id, job_id
+        FROM job_history ;  # 마지막에 ";" 사용
+        ```
+        
+    - EXCEPT 또는 MINUS
+        - SQL 결과의 **차집함 ( 중복된 행은 하나의 행으로 만든다 )**
+            - **첫 번째 검색 결과**에서 **두 번째 검색 결과**를 **제외한 나머지**를 검색 ( **반달 모양으로 나옴!** )
+            - 
+            
+            ```sql
+            SELECT
+            	employee_id, job_id
+            FROM employees
+            
+            MIUNS # or EXCEPT
+            
+            SELECT
+            	employee_id, job_id
+            FROM job_history;
+            ```
+            
+- 주의사항
+    - 두집합의 조회 하려는 **컬럼수가 같아**야 한다. ( 그렇지 않으면 에러를 반환 )
+    - 두집합의 컬럼 **순서가 같아**야한다
+        - 컬럼의 명이 **다를 경우** **가장 첫번째 걸**로 나온다 ::: 따라서 Alias를 사용해서 통일 시켜주자
+    - 두 집합의 각 컬럼의 **데이터 타입 일치**
+    - 컬럼의 데이터타입이 일치 한다면 **사이즈는 달라도 된다.**
+    - **중복 제거**의 조건은 **모든 ROW가 같아야** 제거 하는 것이다 중요함!! ✨
+    - **;는 중간**에 넣으면 **안된다** **(마지막에 넣자)**
 
-FROM EMP E
+### 그룹 함수
 
-WHERE DEPTNO = 10;
-
-- 집합 연산자
-    - 주의사항
-        - 두집합의 조회하려는 컬럼수가 같이야 한다. ( 에러 반환 )
-        - 두집합의 컬럼 순서가 같아야한다
-            - 컬럼의 명이 다를 경우 가장 첫번쨰 걸로 나온다 ::: 따라서 Alias를 사용해서 통일 시켜주자
-        - 두 집합의 각 컬럼의 데이터 타입 일치
-        - 컬럼의 데이터타입이 일치한다면 사이즈는 달라도 된다.
-        - 중복 제거의 조건은 모든 ROW가 같아야 제거하는것이다 중요함!! ✨
-        - ;는 중간에 넣으면 안돼!! 마지막에 넣자
-    - UNION, UNION ALL
-        - UNION : 중복 제거를 원한 시
-        - UNION ALL : 중복데이터 포함 모든 데이터
-
-- 그룹 함수
-    - NULL은 항상 제외하고 실행된다
-    - COUNT(), AVG() 또한 NULL을 제외하고 숫자를 세준다.
-        - 따라서 AVG의 경우 NULL인 값을 포함해서 계산하려면 방법이 2가지 존재
-            - SUM(COMM) / COUNT(*) 을 통한 계산
-            - AVG(NVL(COMM,0)) 을 통한 계산 ::: NULL일 경우 0으로 치환해서 사용
-    - Oracle의 경우 명령어가 다른것이 2개 있음
-        - VARIANCE(). :: 평균
-        - STDDEV() :: 표준 편차
+- NULL은 항상 제외하고 실행된다
+- COUNT(), AVG() 또한 NULL을 제외하고 숫자를 세준다.
+    - 따라서 AVG의 경우 NULL인 값을 포함해서 계산하려면 방법이 2가지 존재
+        - SUM(COMM) / COUNT(*) 을 통한 계산
+        - AVG(NVL(COMM,0)) 을 통한 계산 ::: NULL일 경우 0으로 치환해서 사용
+- Oracle의 경우 명령어가 다른것이 2개 있음
+    - VARIANCE(). :: 평균
+    - STDDEV() :: 표준 편차
 
 - Group By Function
     - Group By 절에서 사용이 가능하다
@@ -868,4 +926,3 @@ FROM EMP;
             - 
         - 예시로 보면 간단하다
             - 1 ~ 5등
-                -

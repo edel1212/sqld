@@ -252,6 +252,12 @@
     - 서로 **독립적으로 발생하면 안된다**.
     - **부분 커밋 불가능** :: 동시 커밋 또는 롤백 처리 되어야한다.
 
+### 트랜잭션 격리성이 낮을 경우 문제
+
+- Dirty Read : 다른 트랜잭션에 의해 수정되었지만 **아직 커밋되지 않은 데이터를 읽는 것**
+- Non-Repeatable Read : **한 트랜잭션 내에서 같은 쿼리**를 **두번 수행**했는데 그사이 다른 트랜잭션이 값을 **수정 또는 삭제**해서 **두 쿼리가 결과가 다른 것**
+- Phantom Read : 한 트랜잭션에서 같은 쿼리 두번 수행 했는데 첫번쨰 쿼리에서 없던 **유령 레코드가 두번쨰 쿼리에서 나타**나는것
+
 ### 필수적, 선택적 관계와 ERD
 
 - 필수적 관계
@@ -270,16 +276,46 @@
 - 모델 설계 시 Null 사용 여부를 설정함
 - 0 이나 공백이랑은 **완전히 다른 개념**이다
 
-### NULL의 특성
+### NULL 정리
 
 - **NULL을 포함한 연산 결과**는 **항상 NULL**이다
-- 필요할 경우 “**NVL(대상 , 0)**”을 통해 **치환하여 계산**해 주자
+    - Ex) NULL + 300 = NULL
+- NULL을 **다른 값으로 변환** 방법
+    - **Oracle**
+        - **NVL(대상 , 0)**
+    - SQL Server
+        - **ISNULL(대상, 0)**
+    - 사용하면 NULL을 0으로 변환 해준다.
+- 조건에 맞는 값을 NUL로 변환 방법
+    - NULLIF(대상, 조건값 ) :: 이 맞으면 NULL 이 나온다.
+    
+    ```sql
+    # 내나이 32 .. 맞아서 NULL로 반환된다.. 30 살이면 30 살로 나올텐데 ..
+    SELECT NULLIF(내나이, 32) FROM DUAL;
+    ```
+    
+- Oracle의 경우 Insert 시 ‘’ 값을 넣으면 NULL이 들어간다.
+    
+    ```sql
+    INSERT INTO 테이블 VALUES('999', '', '2024-11-19' ); # 경우 2번째 컬럼이 NULL임
+    ## ⭐️ 중요 포인트는 SQL-Server는 ''로 빈 문자열이 들어간다는 것이다
+    ```
+    
 - **집계 함수**는 NULL을 **제외한 연산 결과**를 **리턴**한다.
     - sum, avg, min, max등의 함수는 NULL을 제외하고 계산해준다.
-- ⭐️ 함정으로 내기 좋은 문제
-    - 각 특정 컬럼에 NULL이 존재할 경우 평균을 구하려 할 경우
-        - 그냥 AVG(CMM)를 사용하면 **NULL을 제외한 평균**이 계산 된다
-        - SUM(CMM) / COUNT(*) 로 계산 할 경우 NULL을 포함한 **모든 인스턴스의 평균**이 나옴
+    - ⭐️ 함정으로 내기 좋은 문제
+        - 각 특정 컬럼에 NULL이 존재할 경우 평균을 구하려 할 경우
+            - 그냥 AVG(CMM)를 사용하면 **NULL을 제외한 평균**이 계산 된다
+            - SUM(CMM) / COUNT(*) 로 계산 할 경우 NULL을 포함한 **모든 인스턴스의 평균**이 나옴
+- COALESCE() 함수
+    - 첫번째 NULL이 아닌 값을 반환 해주는 함수
+    
+    ```sql
+    # c1 에 null, c2에 null, c3 100 일 경우  ==> 100을 반환
+    # c1에 20이면 바로 ==> 20 반환 해줌
+    SELECT COCALESCE(c1,c2,c3) from dual;
+    ```
+    
 
 ### NULL 표기법
 
@@ -329,8 +365,12 @@
 
 - **DDL :: 포인트는 모든** 명령어가 **오토 커밋**된다
     - Create, Alter, Drop, Rename, TRUNCATE
-        - TRUNCATE 사용법 ( delete와 유사 하나 메모리까지 날림)
-            - TRUNCATE FROM 테이블명;
+        - TRUNCATE
+            - 주의사항
+                - **로그를 남지 않음** (개발 기준 확인하고 사용)
+                - DELETE 와 같이 데이터를 날리지만  **메모리까지 날려버림**
+            - 사용법
+                - TRUNCATE FROM 테이블명;
 
 ### SELECT 문의 구조
 
@@ -387,6 +427,62 @@ ORDER BY {정렬 컬럼}
 - 부모 데이터가 있어도 **자식 데이터는** 삭제 가능하다.
     - 오히려 **부모가 엮여 있을 경우 지워지지 않는다 ( 가장의 무게.. )**
         - Cannot delete or update a parent row: a foreign key constraint fails
+- 부모 데이터 삭제를 하고싶다면 아래의 제약 조건을 추가해 주자
+    - `ON DELETE CASCADE;`
+    - `ON DELETE SET NULL;`
+- 외래키 설정 방법
+    - 테이블 생성 시
+    
+    ```sql
+    CREATE TABLE Orders (
+        OrderID INT PRIMARY KEY,
+        ProductID INT,
+        OrderDate DATE,
+        # CONSTRAINT 제약조건명  은 필수가 아님 옵션이다 자동으로 생성됨
+        FOREIGN KEY (ProductID) REFERENCES Products(ProductID) ON DELETE CASCADE
+    );
+    ```
+    
+    - Alter 사용 시
+    
+    ```sql
+    ALTER TABLE Orders
+    # Alter의 경우 ADD CONSTRAINT 제약조건명 필수임
+    ADD CONSTRAINT FK_ProductID
+    FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
+    ON DELETE SET NULL;
+    ```
+    
+
+## 날짜 비교
+
+- 유의사항
+    - TO_DATE() 와 TO_CAHR()로 변환한 날짜는 완전히 다르게 작동한다
+        - TO_CAHR() 의 경우 **완벽하게 해당 날짜를 문자로 변환**
+            
+            ```sql
+            SELECT TO_CHAR(날짜가들어있는컬럼, 'YYYYMM') FROM DUAL;
+            # '202411' 을 반환 해줌 
+            ```
+            
+        - TO_DATE()의 경우 yyyy-MM를 삽입해도 **뒤에 일 시 분 초가 붙는다**
+        
+        ```sql
+        SELECT TO_DATE(날짜가들어있는컬럼, 'YYYYMM') FROM DUAL;
+        # 24/11/01 00:00:00 을 반환 해줌 
+        ```
+        
+
+## 단일 행 , 다중 행 함수
+
+- 함수의 입력 행수의 따라 단일행 함수와 다중행 함수로 구분 할 수있다.
+- **1:M 조인**이라 하더라도 M쪽에서 출력된 행이 하나씩 **단일행 함수의 입력값으로 사용되므로 사용할 수 있다**
+- **다중행 함수도** 단일행 함수와 동일하게 **단일 값만을 반환**한다.
+- 종류
+    - 단일행 함수
+        - lower, upper, substr, length, trim, replace
+    - 다중행 함수
+        - sum, count, max, min, avg
 
 ## Join
 
@@ -549,6 +645,19 @@ ORDER BY {정렬 컬럼}
         ```
         
     - 테이블 또한 Alias로 지정해 줘야한다
+- 조인이랑 헷갈리지말자 **내부에서 WHERE** 절을 통해 밖에 **Table과 연결 불가능**
+    
+    ```sql
+    SELECT
+    	T1.NAME , T2.HAP
+    FROM EMP T1
+    , (
+    		SELECT SUM(SAL) AS HAP FROM DEP
+    			# 불가능
+    			WHERE T1.NAME = DEP.NAME		
+    	) T2;
+    ```
+    
 
 ### 스칼라 서브쿼리
 

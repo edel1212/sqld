@@ -407,6 +407,21 @@ ORDER BY {정렬 컬럼}
 
 - **SELECT 문보다 늦게** 시행 되므로 **만 컬럼 별칭 사용이 가능**하다
 - “,” 를 통해 **복수의 정렬** 이 가능하다
+- Order By ( Case When 문이 사용 가능 )
+    - 변환 된값으로 해서 정렬 하며 뒤에 정렬 종류를 쓰지 않으면 기본 ASC 정렬을 한다.
+    - 예시
+        
+        ```sql
+        SELECT 
+        	id 
+        FROM tbl
+        	GROUP BY ID
+        HAVING COUNT(*) = 2
+        # ID값이 999일 경우 Then 숫자로 정렬함 여기서 만약 다른 ID가 100이라면 
+        # 그 위로 올라감!! 이유는 -> 100보다 99가 작으니 Default ASC로 인해 위로!!
+        ORDER BY ( CASE WHEN ID = 999 THEN 99 ELSE ID END );
+        ```
+        
 
 ### Alias 주의사항
 
@@ -1035,3 +1050,4 @@ FROM EMP;
             - 
         - 예시로 보면 간단하다
             - 1 ~ 5등
+                -

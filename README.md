@@ -291,7 +291,7 @@
     
     ```sql
     # 내나이 32 .. 맞아서 NULL로 반환된다.. 30 살이면 30 살로 나올텐데 ..
-    SELECT NULLIF(내나이, 32) FROM DUAL;
+    SELECT NULLIF(내 나이, 32) FROM DUAL;
     ```
     
 - Oracle의 경우 Insert 시 ‘’ 값을 넣으면 NULL이 들어간다.
@@ -407,8 +407,10 @@ ORDER BY {정렬 컬럼}
 
 - **SELECT 문보다 늦게** 시행 되므로 **만 컬럼 별칭 사용이 가능**하다
 - “,” 를 통해 **복수의 정렬** 이 가능하다
-- Order By ( Case When 문이 사용 가능 )
-    - 변환 된값으로 해서 정렬 하며 뒤에 정렬 종류를 쓰지 않으면 기본 ASC 정렬을 한다.
+- DMBS 마다 **NULL값에 대한 정렬 순서가 다를 수 있으**므로 주의
+- Order By절 () 안에 **Alias**나 컬럼 순서를 나타내는 **정수** **혼용 사용 가능!**
+- Order By ( **Case When 문**이 **사용 가능 하다!!** )
+    - 변환 된값으로 해서 정렬 하며 뒤에 정렬 종류를 쓰지 않으면 **기본 ASC 정렬**을 한다.
     - 예시
         
         ```sql
@@ -422,6 +424,38 @@ ORDER BY {정렬 컬럼}
         ORDER BY ( CASE WHEN ID = 999 THEN 99 ELSE ID END );
         ```
         
+- 함정 문제
+    
+    ```sql
+    # 해당 쿼리는 이상이 없다
+    SELECT 
+    	지역, 매출금액
+    FROM 지역별매출
+    	ORDER BY 년 ASC;
+    
+    #########################
+    
+    # 해당 쿼리는 에러를 발생한다 왜일까??
+    SELECT
+    	지역, SUM(매출금액) AS 매출금액
+    GROUP BY 지역
+    	FROM 지역별매출
+    ORDER BY 년 DESC;
+    
+    # 👉 이유는 SELECT 한 부분들이 모두 Group화 되어 있지만 정렬하려는 
+    #    대상의 년은 그룹화된 상태가 아니기 떄문이다!
+    
+    ################################
+    ################################
+    
+    # 아래와 같이 서브쿼리를 사용하면 처리 가능
+    SELECT 
+    	지역, SUM(매출금액) AS 매출금액 
+    FROM 지역별매출
+    	GROUP BY 지역
+    ORDER BY (SELECT MAX(년) FROM 지역별매출) DESC; 
+    ```
+    
 
 ### Alias 주의사항
 
@@ -498,6 +532,28 @@ ORDER BY {정렬 컬럼}
         - lower, upper, substr, length, trim, replace
     - 다중행 함수
         - sum, count, max, min, avg
+
+### TOP 함수
+
+- SQL - Server에만 존재하는 함수
+    - Oracle에는 없어!!!
+- 사용 예시
+    
+    ```sql
+    # 해당 값이 동일하면 함께 출력 ❌
+    SELECT 
+    	TOP(3) {대상컬럼, 대상커럼}
+    FROM {테이블명}
+    	ORDER BY {정렬기준} ; # ASC 혹은 DESC를 적용 
+    
+    ######################################
+    SELECT 
+    	# WITH TIES를 사용하면 동일 값도 함께 출력 해준다
+    	TOP(3) WITH TIES {대상컬럼, 대상커럼} 
+    FROM {테이블명}
+    	ORDER BY {정렬기준} ; # ASC 혹은 DESC를 적용 
+    ```
+    
 
 ## Join
 
@@ -1050,4 +1106,3 @@ FROM EMP;
             - 
         - 예시로 보면 간단하다
             - 1 ~ 5등
-                -

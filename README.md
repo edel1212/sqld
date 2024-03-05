@@ -1,5 +1,3 @@
-# **SQLD 정리**
-
 ### 모델링의 개념
 
 - 현실 세계의 비지니스 프로세스와 데이터 요구 사항을 **추상적으로 구조화된 형태로 표현하는 과정**
@@ -562,6 +560,8 @@ ORDER BY {정렬 컬럼}
     - Oracle의 경우 **테이블의 나열 순서가 중요하지 않음**
     - ANSI 표준은 **Outer Joint 시 순서 중요**하다
 - N 개의 테이블 조인 시 **최소 N-1 개의 조인 조건이 필요**하다
+- 대부분 **Non EQUI Join**을 사용할 수 있지만 때로는 **설계상 이유**로 **수행이 불가능** 할 **때**가 **있음**
+- DBMS 옵티마이저는 **항상 2개씩** **짝을** 지어 **Join 수행**
 - JOIN 시 테이블 간 **중복된 컬럼**이 **없을 경우** Alias를 앞에 **안 붙여줘도 된다.**
     - 테이블간 **중복된** 컬럼이 **있을** 경우 **꼭 Alias를 붙여주자!**
         
@@ -785,7 +785,7 @@ ORDER BY {정렬 컬럼}
         	employee_id, job_id
         FROM employees
         
-        # 차집합
+        # 교집합
         INTERSECT
         
         SELECT
@@ -794,7 +794,7 @@ ORDER BY {정렬 컬럼}
         ```
         
     - EXCEPT 또는 MINUS
-        - SQL 결과의 **차집함 ( 중복된 행은 하나의 행으로 만든다 )**
+        - SQL 결과의 **차 집함 ( 중복된 행은 하나의 행으로 만든다 )**
             - **첫 번째 검색 결과**에서 **두 번째 검색 결과**를 **제외한 나머지**를 검색 ( **반달 모양으로 나옴!** )
             - 
             
@@ -803,6 +803,7 @@ ORDER BY {정렬 컬럼}
             	employee_id, job_id
             FROM employees
             
+            # 차집합
             MIUNS # or EXCEPT
             
             SELECT
@@ -821,76 +822,92 @@ ORDER BY {정렬 컬럼}
 
 ### 그룹 함수
 
-- NULL은 항상 제외하고 실행된다
-- COUNT(), AVG() 또한 NULL을 제외하고 숫자를 세준다.
-    - 따라서 AVG의 경우 NULL인 값을 포함해서 계산하려면 방법이 2가지 존재
+- **NULL**은 항상 **제외하고 실행**된다
+- COUNT(), AVG() 또한 **NULL을 제외하고 계산**한다.
+    - 따라서 AVG의 경우 **NULL인 값을 포함**해서 **계산** 하려면 방법이 **2가지 방법** 존재
         - SUM(COMM) / COUNT(*) 을 통한 계산
-        - AVG(NVL(COMM,0)) 을 통한 계산 ::: NULL일 경우 0으로 치환해서 사용
+        - AVG(NVL(COMM,0)) 을 통한 계산 —> **NULL**일 경우 **0으로 변환**해서 사용
 - Oracle의 경우 명령어가 다른것이 2개 있음
-    - VARIANCE(). :: 평균
-    - STDDEV() :: 표준 편차
+    - VARIANCE() ::  열의 분산 값을 계산합니다.
+    - STDDEV() :: 표준 편차 계산
 
-- Group By Function
-    - Group By 절에서 사용이 가능하다
-    - 여러 Group By 결과를 동시에 출력하기 위한 기능이다
-    - 그룹화 할 정의 한다
-    - ———————-
-    - 1. Grouping Sets(a, b, c, d, ….)
-        - A, B 별 그룹 연산 결과를 합쳐서 출력해줌 — 중복 제거 따위 없음 그룹화가 메인 목적임
-        - 만약 각각 그룹화 시 데이터가 없는 컬럼이 있다면 null로 알아서 채워서 반환
-        - 기본 출력에는 전체 총계는 출력하지 않음
-            - 마지막 인자에 null 혹은 ()을 넣으면 맨 마지막 Row에 총계를 계산해 줌
-                - Group By Grouping Sets(DEPTNO, JOB, ()); ## 최종 쿼리 마지막 ROW에 총합
-        - 예시
-            - Select
+### Group By Function
 
-DEPTNO, JOB, SUM(SAL)
-
-FROM EMP
-
-GROUP BY Grouping Sets( DEPTNO, JOB ) ; # 통 그룹화가 아닌 각각 그룹화 하고 싶음!!
-
-- UNION ALL 로도 똑같은 반환 쿼리 사용이 가능하다.
-
-- SELECT
-
-DETPNO, NULL AS JOB, SUM(SAL)
-
-FROM EMP
-
-GROUP BY DEPTNO
-
-UNION ALL
-
-SELECT
-
-NULL AS DETPNO, JOB, SUM(SAL)
-
-FROM EMP
-
-GROUP BY JOB
-
-- ——————————
-
-- 2. ROLLUP
-
-- 순서가 굉장히 중요하다
-
-- 기본적으로 전체 통계를 알려준다
-
-- Rollup의 첫번째 인자를 구분으로 메인 롤링이 되어 그루핑이 된다.
-
-- 최종 로우값에는 맨 마지막 SUM() 부분에 집계 총합이 들어가고 앞컬럼은 다 null이다
-
-- 사용 예시
-
-Select
-
-DEPTNO, JOB, SUM(SAL)
-
-FROM EMP
-
-GROUP BY ROLLUP(DEPTNO, JOB);
+- **Group By 절**에서 **사용**이 가능하다
+- 여러 Group By 결과를 **동시에 출력**하기 위한 **기능**이다
+- **1. Grouping Sets(a, b, c, d, ….)**
+    - A, B 별 **그룹 연산** 결과를 **합쳐서 출력**  🔥 **중복 제거 따위 없음 →** 그룹화가  목적
+    - 각 각 그룹화 시 **데이터가 없는 컬럼**이 있다면 **Null로 알아서 채움**
+    - **Default 파라미터**만 **사용** 후 출력 시 **전체 합계** ❌
+        - **마지막 인자**에 **Null or ()** 을 넣으면 맨 **최종 Row에 합계** 출
+            - Ex)
+                
+                ```sql
+                Group By Grouping Sets(DEPTNO, JOB, ()); ## 최종 쿼리 마지막 ROW에 총합
+                ```
+                
+    - 예시
+        
+        ```sql
+        SELECT
+        	DEPTNO, JOB, SUM(SAL)
+        FROM EMP
+        	# 통 그룹화가 아닌 DEPTNO, JOB 각각 그룹화 하고 싶을 경우
+        	GROUP BY Grouping Sets( DEPTNO, JOB ) ; 
+        ```
+        
+        - 위와 같은 결과 출력 방법 - UNION ALL
+            
+            ```sql
+            # DEPTNO 그룹화한 결과
+            SELECT
+            	DETPNO, NULL AS JOB, SUM(SAL)
+            FROM EMP
+            	GROUP BY DEPTNO
+            
+            # UNION ALL을 통해 중복 무시 결합
+            UNION ALL
+            
+            # JOB 그룹화한 결과
+            SELECT
+            	NULL AS DETPNO, JOB, SUM(SAL)
+            FROM EMP
+            	GROUP BY JOB
+            ```
+            
+- **2. ROLLUP**
+    - **파라미터 순서**가 굉장히 **중요**하다
+        - **첫 번째**가 **기준**이 되기 때문이다.
+    - 기본적으로 전체 통계를 마지막에 작성해 줌
+    - ROLLUP의 **첫 번째 인자를 기준**으로 메인 롤링이 되어 **Group화**
+    - 예시
+        
+        ```sql
+        SELECT
+        	DEPTNO, JOB, SUM(SAL)
+        FROM EMP
+        	GROUP BY ROLLUP(DEPTNO, JOB);
+        ```
+        
+        - 결과 값
+            
+            
+            | DEPTNO | JOB | SUM(SAL) |
+            | --- | --- | --- |
+            | 10 | CLERK | 1300 |
+            | 10 | MANAGER | 7950 |
+            | 10 | ANALYST | 3000 |
+            | 10 | PRESIDENT | 5000 |
+            | 10 | NULL | 17250 |
+            | 20 | CLERK | 2800 |
+            | 20 | MANAGER | 8425 |
+            | 20 | ANALYST | 3000 |
+            | 20 | NULL | 14225 |
+            | 30 | CLERK | 3050 |
+            | 30 | SALESMAN | 5950 |
+            | 30 | MANAGER | 2850 |
+            | 30 | NULL | 11850 |
+            | NULL | NULL | 43325 |
 
 - ——————————
 
@@ -1127,3 +1144,4 @@ FROM EMP;
             - 
         - 예시로 보면 간단하다
             - 1 ~ 5등
+                -

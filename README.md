@@ -1,3 +1,5 @@
+# **SQLD 정리**
+
 ### 모델링의 개념
 
 - 현실 세계의 비지니스 프로세스와 데이터 요구 사항을 **추상적으로 구조화된 형태로 표현하는 과정**
@@ -908,42 +910,38 @@ ORDER BY {정렬 컬럼}
             | 30 | MANAGER | 2850 |
             | 30 | NULL | 11850 |
             | NULL | NULL | 43325 |
+- **3. Cube(A,B)**
+    - A별, B별, 전체 그룹 **각각 연산 결과를 출력**
+        - N +1 그룹이 나옴 → 총합 통계까지 같이 나옴
+    - **파라미터**의 **순서**는 **중요하지 않음**
+    - 기본적으로 전체 통계를 알려 줌
+    - **Grouping Sets()**을 사용해도 같은 결과 값이 나오게 **가능**
+    - 예시
+        
+        ```sql
+        SELECT
+        	상품ID, 월, SUM(매출액) AS 매출액
+        FROM 월별매출
+        	GROUP BY CUBE(상품ID, 월);
+        ```
+        
+        - 결과
+        
+        ![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/812934f4-5ca6-4cae-bf06-6dac4e78ba75/10a9a0f8-4d2a-4798-9adc-ee2f4bb28aad/Untitled.png)
+        
 
-- ——————————
+### Window Function
 
-- 3. Cube(A,B)
-
-- A별, B별, (A,B)별, 전체 그룹 연산 결과를 출력
-
-- 총 4개의 그룹이 나옴. [.총합 통계가 나오기 떄문임 ]
-
-- 순서는 중요하지 않음
-
-- 기본적으로 전체 통계를 알려줌
-
-- Grouping Sets()로도 똑같은 값이나오게 처리 가능
-
-- 예시
-
-Select
-
-DEPTNO, JOB, SUM(SAL)
-
-FROM EMP
-
-GROUP BY Cube(DEPTNO, JOB);
-
-- Window Function
-    - 서로 다른 행의 비교나 연산을 위해 만든 함수
-        - 쉽게 설명 전체 목록에 집계 함수를 사용해야할 경우
-            - 서브 쿼리로 처리가 가능하나 성능에 좋지 못함
-                - Ex) SELECT EMPNO, SUM(SAL) FROM EMP; ## 에러 발생 그룹바이 쓰면 원하는 값 아님!
-    - Group By를 사용하지 않고 그룹연산이 가능
-    - 문법의 순서를 지키는 것이 중요하다
-    - 종류
-        - LAG, LEAD, SUM, AVG, MIN, MAX, COUNT, RANK
-    - 문법
-        - Select 윈도우 함수( 대상 ) OVER ( PARTITION BY 컬럼
+- 서로 다른 행의 비교나 연산을 위해 만든 함수
+    - 쉽게 설명 전체 목록에 집계 함수를 사용해야할 경우
+        - 서브 쿼리로 처리가 가능하나 성능에 좋지 못함
+            - Ex) SELECT EMPNO, SUM(SAL) FROM EMP; ## 에러 발생 그룹바이 쓰면 원하는 값 아님!
+- Group By를 사용하지 않고 그룹연산이 가능
+- 문법의 순서를 지키는 것이 중요하다
+- 종류
+    - LAG, LEAD, SUM, AVG, MIN, MAX, COUNT, RANK
+- 문법
+    - Select 윈도우 함수( 대상 ) OVER ( PARTITION BY 컬럼
 
 ORDER BY 컬럼 DESC | ASC
 
@@ -1144,4 +1142,3 @@ FROM EMP;
             - 
         - 예시로 보면 간단하다
             - 1 ~ 5등
-                -

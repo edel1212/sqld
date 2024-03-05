@@ -1,5 +1,3 @@
-# **SQLD 정리**
-
 ### 모델링의 개념
 
 - 현실 세계의 비지니스 프로세스와 데이터 요구 사항을 **추상적으로 구조화된 형태로 표현하는 과정**
@@ -932,74 +930,65 @@ ORDER BY {정렬 컬럼}
 
 ### Window Function
 
-- 서로 다른 행의 비교나 연산을 위해 만든 함수
-    - 쉽게 설명 전체 목록에 집계 함수를 사용해야할 경우
-        - 서브 쿼리로 처리가 가능하나 성능에 좋지 못함
-            - Ex) SELECT EMPNO, SUM(SAL) FROM EMP; ## 에러 발생 그룹바이 쓰면 원하는 값 아님!
-- Group By를 사용하지 않고 그룹연산이 가능
-- 문법의 순서를 지키는 것이 중요하다
+- 서로 **다른 행**의 **비교나 연산**을 위해 만든 **함수**
+    - 전체 목록에 **집계 함수**를 사용해야 할 경우 : **Group By 없이**
+        - **서브 쿼리**로 **가능**하나 **성능에는 좋지 못함**
+            
+            ```sql
+            SELECT
+            	EMPNO, (SELECT SUM(SAL) FROM DEPT ) AS TOTAL
+            FROM EMP; 
+            ```
+            
+- **Group By**를 사용하지 않고 **그룹 연산이 가능**
 - 종류
-    - LAG, LEAD, SUM, AVG, MIN, MAX, COUNT, RANK
-- 문법
-    - Select 윈도우 함수( 대상 ) OVER ( PARTITION BY 컬럼
-
-ORDER BY 컬럼 DESC | ASC
-
-ROWS | RANGE BETWEEN A AND B
-
-);
-
-- PARTITION BY 절
-
-- 출력할 총 데이터 수 변화 없이 그룹 연산 수행할 GROUP BY 컬럼
-
-- ORDER BY 절
-
-- RANK를 사용할 경우 필수 이며 , 정렬 컬럼 및 정렬 순서에 따라 순위 변화
-
-- SUN, AVG, MIN, MAX, COUNT 등은 누적값 출력 시 사용
-
--  ROWS | RANGE BETWEEN A AND B 절
-
-- 연산 범위 지정
-
-- ORDER BY 절 필수
-
-- —————————
-
-- 그룹 함수 형태
-
-- SUM, COUNT, AVG, MIN, MAX 등
-
-- OVER() 절을 이용하여 윈도우 함수로 사용이 가능하다
-
-- 반드시 연산할 대상을 그룹함수의 입력잡으로 전달해주자
-
-- SUM
-
-- Ex) SELECT EMPNO, SUM(SAL) OVER() AS TOTAL FROM EMP
-
-- 누적된 값을 계산함 층층층층 Order BY 절이 없으므로 순서를 보장 못해서 값이 이상할것임
-
-- AVG
-
-- Ex) SELECT EMPNO, AVG(SAL) OVER() AS TOTAL FROM EMP ; ##모두가 같은 전체 평균
-
-- SELECT EMPNO, AVG(SAL) OVER( PARTITION BY DEPTNO ) AS TOTAL FROM EMP ;
-
-- ## 부서별 평균 적용
-
-- 사실 모든 문법이 같으니 앞에만 바꿔서 적용해주자
-
-- 윈도우 함수의 연산 벙위 설정 : 집계 연산 시 행의 범위 설정 가능
-
-- ROWS, RANGE를 구분자로 사용해서 BETWEEN을 붙여서 사용
-
-- ROWS : 값이 같더라도 각 행씩 연산
-
-- Ex) 같은 값이 나오면 누적 시 당연 누적 해서 계속 계산
-
-- RANGE : 같은 값의 경우 하나의 Range로 묶어서 동시 연산 [ 기본 값  ]
+    - **LAG**: 현재 행 이전의 행에 있는 열 값을 가져옵니다.
+    - **LEAD**: 현재 행 다음의 행에 있는 열 값을 가져옵니다.
+    - **SUM**: 지정된 열의 값들의 합을 계산합니다.
+    - **AVG**: 지정된 열의 값들의 평균을 계산합니다
+    - **MIN**: 지정된 열의 값들 중 최솟값을 찾습니다
+    - **MAX**: 지정된 열의 값들 중 최댓값을 찾습니다
+    - **COUNT**: 지정된 열의 값들의 개수를 계산합니다.
+    - **RANK**: 결과 집합에서 각 행에 대한 순위를 계산합니다. 같은 값이 여러 개인 경우에는 동일한 순위를 부여합니다.
+- **문법의 순서**를 지키는 것이 **중요**하다
+    
+    ```sql
+    SELECT
+    	윈도우 함수( 대상 ) OVER ( PARTITION BY 컬럼
+    												 ORDER BY 컬럼 DESC | ASC
+    												 ROWS | RANGE BETWEEN A AND B
+    													);
+    ```
+    
+    - **PARTITION BY  사용법**
+        - **그룹 연산** 수행할 **GROUP BY 컬럼**을 넣는다
+        - 예시
+            
+            ```sql
+            # 사원 마다 속한 부서별 총 급여
+            SELECT
+            	이름, SUM(SAL) OVER (PARTITION BY DEPTNO) AS 부서 급여 총합
+            FROM EMP;
+            ```
+            
+            - 결과
+            
+            | 이름 | 부서 급여 총합 |
+            | --- | --- |
+            | SMITH | 5800 |
+            | ALLEN | 5600 |
+            | WARD | 5600 |
+            | JONES | 5800 |
+            | BLAKE | 5600 |
+    - **ORDER BY 절**
+        - **정렬**을 해주는 기능
+        - **RANK()**를 사용할 경우 **필수**
+            - 정렬 컬럼 및 정렬 순서에 따라 순위 변화하기 때문이다.
+    - **ROWS | RANGE BETWEEN A AND B 절**
+        - 연산 범의를 지정 해주며 앞에 명령어를 사용 시 옵션이 바뀐다.
+            - RANGE : **같은 값**의 경우 **하나의 Range로 묶어서** 동시 **연산** [ 기본 값  ]
+            - ROWS : 값이 같더라도 **각 행 연산**
+        - **범위를 지정**하기에 **ORDER BY** 절 **필수**
 
 - BETWEEN A AND B
 
@@ -1030,6 +1019,34 @@ ROW BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
 ) AS RESULT1
 
 FROM RANGE_TEST R;
+
+- —————————
+
+- 그룹 함수 형태
+
+- SUM, COUNT, AVG, MIN, MAX 등
+
+- OVER() 절을 이용하여 윈도우 함수로 사용이 가능하다
+
+- 반드시 연산할 대상을 그룹함수의 입력잡으로 전달해주자
+
+- SUM
+
+- Ex) SELECT EMPNO, SUM(SAL) OVER() AS TOTAL FROM EMP
+
+- 누적된 값을 계산함 층층층층 Order BY 절이 없으므로 순서를 보장 못해서 값이 이상할것임
+
+- AVG
+
+- Ex) SELECT EMPNO, AVG(SAL) OVER() AS TOTAL FROM EMP ; ##모두가 같은 전체 평균
+
+- SELECT EMPNO, AVG(SAL) OVER( PARTITION BY DEPTNO ) AS TOTAL FROM EMP ;
+
+- ## 부서별 평균 적용
+
+- 사실 모든 문법이 같으니 앞에만 바꿔서 적용해주자
+
+- 윈도우 함수의 연산 벙위 설정 : 집계 연산 시 행의 범위 설정 가능
 
 - RANK(순위)
 
@@ -1142,3 +1159,4 @@ FROM EMP;
             - 
         - 예시로 보면 간단하다
             - 1 ~ 5등
+                -

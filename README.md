@@ -1,3 +1,5 @@
+# **SQLD 정리**
+
 ### 모델링의 개념
 
 - 현실 세계의 비지니스 프로세스와 데이터 요구 사항을 **추상적으로 구조화된 형태로 표현하는 과정**
@@ -989,64 +991,79 @@ ORDER BY {정렬 컬럼}
             - RANGE : **같은 값**의 경우 **하나의 Range로 묶어서** 동시 **연산** [ 기본 값  ]
             - ROWS : 값이 같더라도 **각 행 연산**
         - **범위를 지정**하기에 **ORDER BY** 절 **필수**
-
-- BETWEEN A AND B
-
-- A) 시작점 정의
-
-- CURRENT ROW : 현재 행부터
-
-- UNBOUNDED PERCENDING : 처음부터 [ 기본값 ]
-
-- N PRECEING : N 이전 부터
-
-- B) 마지막 시점 정의
-
-- CURREND ROW : 현재행까지 [ 기본값 ]
-
-- UNBOUNDNDED FOLLWING : 마지막까지
-
-- N FOLLOWiNG : N 이후까지
-
-———————
-
-- SELECT R.* m SUM(SAL) OVER( ORDER BY SAL ) FROM RANGE_TEST R;
-
-- SELECT R.* m SUM(SAL) OVER( ORDER BY SAL
-
-ROW BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-
-) AS RESULT1
-
-FROM RANGE_TEST R;
-
-- —————————
-
-- 그룹 함수 형태
-
-- SUM, COUNT, AVG, MIN, MAX 등
-
-- OVER() 절을 이용하여 윈도우 함수로 사용이 가능하다
-
-- 반드시 연산할 대상을 그룹함수의 입력잡으로 전달해주자
-
-- SUM
-
-- Ex) SELECT EMPNO, SUM(SAL) OVER() AS TOTAL FROM EMP
-
-- 누적된 값을 계산함 층층층층 Order BY 절이 없으므로 순서를 보장 못해서 값이 이상할것임
-
-- AVG
-
-- Ex) SELECT EMPNO, AVG(SAL) OVER() AS TOTAL FROM EMP ; ##모두가 같은 전체 평균
-
-- SELECT EMPNO, AVG(SAL) OVER( PARTITION BY DEPTNO ) AS TOTAL FROM EMP ;
-
-- ## 부서별 평균 적용
-
-- 사실 모든 문법이 같으니 앞에만 바꿔서 적용해주자
-
-- 윈도우 함수의 연산 벙위 설정 : 집계 연산 시 행의 범위 설정 가능
+        - **BETWEEN A AND B 각각 A, B 설명**
+            - **“A”** 시작점 정의
+                - CURRENT ROW : 현재 행부터
+                - UNBOUNDED PERCENDING : 처음부터 [ 기본값 ]
+                - N PRECEING : N 이전 부터
+            - **“B”** 마지막 시점 정의
+                - CURREND ROW : 현재행까지 [ 기본값 ]
+                - UNBOUNDNDED FOLLWING : 마지막까지
+                - N FOLLOWiNG : N 이후까지
+        - 예시
+            
+            ```sql
+            SELECT                 # 급여 순대로 정렬  
+            	R.* m SUM(SAL) OVER( ORDER BY SAL
+            											# 처음부터 ~ 현재행까지 범위로 계산
+            											 ROW BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+            										) AS RESULT
+            FROM RANGE_TEST R;
+            ```
+            
+            - 결과 : Result를 보면 대각선으로 더 해짐
+                
+                
+                | ID | SAL | RESULT |
+                | --- | --- | --- |
+                | 1 | 100 | 100 |
+                | 2 | 200 | 300 |
+                | 3 | 300 | 600 |
+                | 4 | 400 | 1000 |
+                | 5 | 500 | 1500 |
+    - **그룹 함수 형태**
+        - SUM, COUNT, AVG, MIN, MAX 등
+        - **OVER()** 절을 이용하여 **윈도우 함수로 사용이 가능**하다
+        - 예시 - SUM + Order By
+            
+            ```sql
+            # 모든 직원의 급여 합계가 나온다 << 쓸모 없는 쿼리
+            SELECT EMPNO, SUM(SAL) OVER() AS TOTAL FROM EMP;
+            
+            # 급여가 낮은 순서대로 누적합
+            SELECT EMPNO, SUM(SAL) OVER( ORDER BY SAL ) AS TOTAL FROM EMP;
+            
+            # 결과
+            | EMPNO | TOTAL |
+            |-------|-------|
+            | 7900  | 950   | (EMPNO 7900까지의 급여 합계)
+            | 7876  | 2050  | (EMPNO 7876까지의 급여 합계)
+            | 7369  | 3850  | (EMPNO 7369까지의 급여 합계)
+            | 7934  | 5150  | (EMPNO 7934까지의 급여 합계)
+            | 7844  | 6450  | (EMPNO 7844까지의 급여 합계)
+            | 7521  | 7950  | (EMPNO 7521까지의 급여 합계)
+            | 7499  | 9550  | (EMPNO 7499까지의 급여 합계)
+            | 7521  | 12050 | (EMPNO 7521까지의 급여 합계)
+            | 7782  | 15075 | (EMPNO 7782까지의 급여 합계)
+            | 7698  | 18125 | (EMPNO 7698까지의 급여 합계)
+            | 7566  | 21100 | (EMPNO 7566까지의 급여 합계)
+            | 7788  | 24100 | (EMPNO 7788까지의 급여 합계)
+            | 7839  | 29100 | (EMPNO 7839까지의 급여 합계)
+            ```
+            
+        - 예시  -  AVG + PARTITION BY
+            
+            ```sql
+            ## 모두가 같은 전체 평균
+            SELECT EMPNO, AVG(SAL) OVER() AS TOTAL FROM EMP ; 
+            
+            ## 부서별 평균
+            SELECT EMPNO, AVG(SAL) OVER( PARTITION BY DEPTNO ) AS TOTAL FROM EMP ;
+            ```
+            
+        - **전체 문법**이 **비슷**하기에 앞에 사용할 **집계함수만 변경**하면 된다.
+    - **RANK()**
+    
 
 - RANK(순위)
 
@@ -1159,4 +1176,3 @@ FROM EMP;
             - 
         - 예시로 보면 간단하다
             - 1 ~ 5등
-                -

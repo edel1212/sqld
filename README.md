@@ -1062,57 +1062,71 @@ ORDER BY {정렬 컬럼}
             ```
             
         - **전체 문법**이 **비슷**하기에 앞에 사용할 **집계함수만 변경**하면 된다.
-    - **RANK()**
-    
-
-- RANK(순위)
-
-- 특정값에 대한 순위 확인
-
-- RANK WITHIN GROUP
-
-- SELECT RANK(값) WITHIN GROUP( ORDER BY 컬럼 )
-
-- RANK() OVER()
-
-- 전체 중/ 특정 그룹 중 값의 우선순위 확인
-
-- ORDER BY 절 필수
-
-- 순위를 구할 대상을 ORDER BY 절에 명시 ( 여러개 가능 )
-
-- 그룹 내 순위 구할 시 PARTITION BY 절 사용
-
-- 예시 [ 각 직원의 급여의 전체 순위 ] **  동순위가 나오면 처리후 다음은 +N으로 처리 **
-
-SELECT ENAME, DEPTNO, SAL
-
-, RANK() OVER( ORDER BY SAL DESC ) AS ‘돈 많이 받는 순위’
-
-FROM EMP;
-
-- 예시2 [ 각 직원의 부서별 급여 순위  ]
-
-SELECT ENAME, DEPTNO, SAL
-
-, RANK() OVER( 	PARTITION BY DEPTNO
-
-ORDER BY SAL DESC ) AS ‘부서별 돈 많이 받는 순위’
-
-FROM EMP;
-
-- DENSE_RANK()
-
-- RANK랑 사용방법은 똑같으나 동일한 순위 부여 후 다음 순위가 바로 이어지게 함
-
-- ROW_NUMBER
-
-- 연속된 행 번호
-
-- 동일한 순위를 인정하지 않고 단순히 순서대로 나얼하는 기능 순서값 리턴이야!!
-
-- LAG, LEAD
-    - 행의 순서대로 각 이전값(LAG, N ), 이후 값(LEAD, N ) 가져오기
+- **RANK()**
+    - **특정 값**에 대한 **순위 확인**
+    - Window 함수가 아니지만 자주 쓰이는 방식
+        
+        ```sql
+        SELECT RANK(값) WITHIN GROUP( ORDER BY 컬럼명 );
+        
+        # 급여가 3000이면 전체 급여에서의 순위
+        SELECT 
+        	RANK(3000) WITHIN GROUP( ORDER BY SAL DESC  ) AS RANK_RESULT 
+        FROM RMP;
+        ```
+        
+    - **Window 함수 사용**
+        - 전체 / 특정 그룹 중 **값의 우선 순위**를 확인
+        - **OVER() 내부 ORDER BY절은 필수이다**
+            - 순위를 구할 대상을 ORDER BY에 명시하는데 **여러개 가능**
+                - 예시 - 각 직원의 급여의 전체 순위 ( **동 순위가 나오면 다음 순위는 +a** )
+                    
+                    ```sql
+                    SELECT ENAME, DEPTNO, SAL
+                    , RANK() OVER( ORDER BY SAL DESC ) AS ‘돈 많이 받는 순위’
+                    FROM EMP;
+                    
+                    # 포인트는 자도으로 정렬되어서 나온다는 것이다
+                    | ENAME | DEPTNO | SAL  | 돈 많이 받는 순위 |
+                    |-------|--------|------|------------------|
+                    | JONES | 20     | 2975 | 1                | (JONES의 급여가 가장 높아서 1등)
+                    | BLAKE | 30     | 2850 | 2                | (BLAKE의 급여가 두 번째로 높아서 2등)
+                    | ALLEN | 30     | 1600 | 3                | (ALLEN의 급여가 세 번째로 높아서 3등)
+                    | WARD  | 30     | 1250 | 4                | (WARD의 급여가 네 번째로 높아서 4등)
+                    | SMITH | 20     | 800  | 5                | (SMITH의 급여가 가장 낮아서 5등)
+                    ```
+                    
+        - **그룹 내 순위** 구할 경우 **PARTITION BY 절 사용**
+            - 예시 - 각 직원의 부서별 급여 순위
+                
+                ```sql
+                SELECT ENAME, DEPTNO, SAL
+                , RANK() OVER( 	PARTITION BY DEPTNO
+                								ORDER BY SAL DESC ) AS ‘부서별 돈 많이 받는 순위’
+                FROM EMP;
+                
+                # 마찬가지로 자동 정렬 부서별로 
+                | ENAME | DEPTNO | SAL  | 부서별 돈 많이 받는 순위 |
+                |-------|--------|------|--------------------------|
+                | JONES | 20     | 2975 | 1                        | (부서 20에서 가장 높은 급여를 받는 직원으로 1등)
+                | SMITH | 20     | 800  | 2                        | (부서 20에서 두 번째로 높은 급여를 받는 직원으로 2등)
+                | ALLEN | 30     | 1600 | 1                        | (부서 30에서 가장 높은 급여를 받는 직원으로 1등)
+                | BLAKE | 30     | 2850 | 2                        | (부서 30에서 두 번째로 높은 급여를 받는 직원으로 2등)
+                | WARD  | 30     | 1250 | 3                        | (부서 30에서 세 번째로 높은 급여를 받는 직원으로 3등)
+                ```
+                
+- **DENSE_RANK()**
+    - RANK() 와 사용 방법은 똑다
+    - 다른점은 동 순위 부여 후 **다음 순위가 바로 이어지게 함**
+        - Ex) 2등,2등 → 3등 시작  ::: **+a가 없어!**
+- **ROW_NUMBER**
+    - 연속된 행 번호
+    - 그냥 **목록 순서대**로 **번호를 나열**
+- **LAG, LEAD**
+    - **행의 순서대**로 각 **이전 값, 이후 값** 을 가져옴
+        - LAG(대상컬럼, 숫자)  :: 이전 값
+        - LEAD(대상컬럼, 숫자) :: 이후 값
+    - , 이후 값 가져오기
     - ORDER BY 절이 필수 이며 원하는 값에 맞게 적절하게 정렬을 해줘야한다.
         - 바로 이전 입사자와 급여를 비교
             - SELECT ENAME, GIREDATE, SAL,

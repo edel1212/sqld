@@ -722,6 +722,10 @@ ORDER BY {정렬 컬럼}
         - < ALL() : **최소값**을 반환
         - > ALL() : **최대값**을 반환
     - 다중 행은 당연히 EQUI 비교가 불가능하다, 그렇기에 서브 쿼리 내에서 조인을 통해 값을 정제 후 사용하는 경우가 많음
+- **EXISTS, NOT EXISTS**
+    - "한 건이라도 존재하면" 그 유무에 따라 TRUE 또는 FALSE를 반환한다.
+        - **EXISTS : 한건이라도 존재하는 경우**
+        - **NOT EXISTS : EXISTS의 반전 결과**
 
 ### 인라인 뷰 서브쿼리
 
@@ -1072,7 +1076,7 @@ ORDER BY {정렬 컬럼}
         # 급여가 3000이면 전체 급여에서의 순위
         SELECT 
         	RANK(3000) WITHIN GROUP( ORDER BY SAL DESC  ) AS RANK_RESULT 
-        FROM RMP;
+        FROM EMP;
         ```
         
     - **Window 함수 사용**
@@ -1124,51 +1128,169 @@ ORDER BY {정렬 컬럼}
     - 그냥 **목록 순서대**로 **번호를 나열**
 - **LAG, LEAD**
     - **행의 순서대**로 각 **이전 값, 이후 값** 을 가져옴
-        - LAG(대상컬럼, 숫자)  :: 이전 값
-        - LEAD(대상컬럼, 숫자) :: 이후 값
-    - , 이후 값 가져오기
-    - ORDER BY 절이 필수 이며 원하는 값에 맞게 적절하게 정렬을 해줘야한다.
-        - 바로 이전 입사자와 급여를 비교
-            - SELECT ENAME, GIREDATE, SAL,
-
-LAG(SAL) OVER(ORDER BY HIREDATE) AS ‘바로 입사자 급여임’
-
-- FIRST_VALUE, LAST_VALUE
-    - 정렬 순서대로 정해진 범위에서의 처음 값, 마지막 값 출력
-    - 순서와 범위 지정에 따라 최솟값과 최대값이 리턴 가능하다
+        - LAG(대상컬럼, 숫자)  ::  **입력 숫자** 이**전**  값
+        - LEAD(대상컬럼, 숫자) :: **입력 숫자** 이**후** 값
+    - **ORDER BY 절이 필수** 이다.
+        - **원하는 값**을 가져오기 위해서는 **당연한 결과**
+    - 예시 - LAG
+        
+        ```sql
+        # 바로 이전 입사자와 급여를 비교 쿼리
+        SELECT
+            ENAME, HIREDATE, SAL,
+            -- 정렬을 통해 원하는 순서로 맞춰줌으로 전 입사자 값을 가져옴
+            LAG(SAL) OVER(ORDER BY HIREDATE) AS '바로_전_입사자_급여'
+        FROM EMP;
+        
+        -- Result
+        ENAME 	HIREDATE	   SAL	바로_전_입사자_급여
+        Smith  2020-01-10	  3000	 NULL
+        Allen  2020-03-20	  3200	 3000
+        Ward 	 2020-05-15	  3500	 3200
+        Jones	 2020-11-01	  4000	 3500
+        ```
+        
+    - 예시 - LEAD
+        
+        ```sql
+        # 바로 다음 금여를 더 낮게 받는 직원순서대로 쿼리
+        SELECT
+            ENAME,
+            SAL AS "내 급여",
+            LEAD(SAL) OVER(ORDER BY SAL DESC) AS "다음_낮은_급여"
+        FROM
+            EMP;
+        
+        -- Resut
+        ENAME	  내 급여	   다음_높은_급여
+        Jones	  2975	      2850
+        Blake	  2850	      1600
+        Allen	  1600	      1250
+        Ward	  1250	      800
+        Smith	  800	        NULL
+        ```
+        
+- **FIRST_VALUE, LAST_VALUE**
+    - 정렬 순서대로 정해진 범위에서의 **처음 값**, **마지막 값 출력**
+    - 순서와 범위 지정에 따라 **최소값과 최대값**이 **리턴 가능**하다
     - 중요 사항
-        - LAST_VALUE의 경우 최대값을 사용하라면 정렬만으로는 불가능하다
-            - 비교하려는 값의 마지막이기에 기준이 현재 행으로 Window 함수가 잡기때문
+        - **LAST_VALUE**의 경우 최대값을 가져오려면 **기본 설정만**으로는 **불가능**
+            - **Between**의 "B”기본 값이 현재 행이기 때문이다
                 - 해결 방법
-                    - RANGE BETWEEN PRECDEING AND UNBOUNDED FOLLOWING 으로 잡아주자 ( 처음부터 ~ 무조건 마지막 행까지로 검사)
-
-- NTILE
-    - 행을 특정 컬럼 순서에 따라 정해진 수의 그룹으로 나누기 위한 함수
-    - 그룹 번호가 리턴됨
-    - ORDER BY 필수
-    - PARTITION BY 를 사용하여 특정 그룹을 또 원하는 수만 만큼 그룹 분리 가능
-    - 예시 :: [ 급여 순서대로 정렬후 전체 /2 해서 나눔 ]
-        - SELECT ENAME, SAL, DEPTNO,
-
-NTILE(2) OVER (ORER BY SAL) AS ‘급여 순서대로 2로 나눔’
-
-FROM EMP;
-
-- 비율 관련 함수
-    - 1) RATIO_TO_REPORT
-        - 각 값의 비율 리턴(전체 비율 또는 특정 그룹 내 비율 가능)
-        - ORDER BY 사용불가
+                    
+                    ```sql
+                    SELECT
+                    	LAST_VALUE( 대상컬럼 ) OVER(
+                    				# 처음 값 ~ 마지막행까지!! 의 범위이다.
+                    				RANGE BETWEEN UNBOUNDED PRECDEING AND UNBOUNDED FOLLOWING 
+                    			)
+                    FROM 테이블;
+                    ```
+                    
+- **NTILE**
+    - 행을 **특정 컬럼 순서**에 따라 **정해진 수의 그룹**으로 나누기 위한 함수
+        - 쉽게 말해 **총 행 나누기 숫자 임**
+    - **ORDER BY 필수**
+    - **PARTITION BY** 를 사용하여 **특정 그룹을 또 원하는 수만 만큼 그룹 분리** 가능
+    - 예시
+        
+        ```sql
+        # 급여 순서대로 정렬후 전체의 행에서 2로 나눔
+        SELECT
+        	ENAME, SAL, DEPTNO
+        	, NTILE(2) OVER (ORER BY SAL) AS ‘급여 순서대로 2개로 나눔’
+        FROM EMP;
+        
+        -- Result
+        | ENAME | SAL  | DEPTNO | 급여 순서대로 2개로 나눔 |
+        |-------|------|--------|--------------------------|
+        | SMITH | 800  | 20     | 1                        |
+        | ALLEN | 1600 | 30     | 1                        |
+        | WARD  | 1250 | 30     | 1                        |
+        | JONES | 2975 | 20     | 2                        |
+        | BLAKE | 2850 | 30     | 2                        |
+        ```
+        
+- **비율 관련 함수**
+    - 1) **RATIO_TO_REPORT**
+        - **각 값의 비율** 반환 (**전체 비율** 또는 **특정 그룹 내 비율** 가능)
+        - ORDER BY **사용불가 ::** 당연한 결과 어차피 비율이라 정렬  불 필요
+            - **예시**
+            
+            ```sql
+            SELECT
+                ENAME,
+                SAL,
+            		## 전체 급여기준 각각의 비율
+                RATIO_TO_REPORT(SAL) OVER () AS SAL_RATIO
+            FROM
+                EMP;
+            
+            -- Result
+            | ENAME | SAL  | SAL_RATIO      |
+            |-------|------|----------------|
+            | SMITH | 800  | 0.099875156    |
+            | ALLEN | 1600 | 0.199750312    |
+            | WARD  | 1250 | 0.155718475    |
+            | JONES | 2975 | 0.371266004    |
+            | BLAKE | 2850 | 0.373389053    |
+            ```
+            
     - 2) CUME_DIST
-        - 각 값의 누적 비율 리턴’
-        - 누적이기에 ORDER BY 필수
+        - 각 **값의 누적 비율** 반환
+        - **ORDER BY 필수**  :: 당연한 결과 **누적이니까 순서 중요!!**
+        - 예시
+            
+            ```sql
+            SELECT
+                ENAME,
+                SAL,
+                CUME_DIST() OVER (ORDER BY SAL) AS SAL_CUM_DIST
+            FROM
+                EMP;
+            
+            -- Result :: 포인트는 비율 기준이 최종 누적 값이라는 것!
+            | ENAME | SAL  | SAL_CUM_DIST   |
+            |-------|------|----------------|
+            | SMITH | 800  | 0.2            |
+            | ALLEN | 1600 | 0.4            |
+            | WARD  | 1250 | 0.6            |
+            | JONES | 2975 | 0.8            |
+            | BLAKE | 2850 | 1.0            |
+            ```
+            
     - 3) PERCENT_RANK
-        - PERCENTILE(분위수) 출력
-        - 전체 COUNT 중 상대적 위치 출략 ( 0 ~ 1 범위 내 소수점 으로 출력)
-        - ORDER BY 필수
+        - 전체 COUNT 중 **상대적 위치 출력**( 0 ~ 1 범위 내 소수점 으로 출력)
+        - **ORDER BY 필수**
+        - 예시
+            
+            ```sql
+            SELECT
+                ENAME,
+                SAL,
+            		# 요건 누적값에 대한 비율
+            		CUME_DIST() OVER (ORDER BY SAL) AS SAL_CUM_DIST,
+            		# 요건상대적인 위치 :: 잘보면 가장 낮은게 0 , 가장 높은게 1 이고
+            		# 나머지 안에 값을 더 하면 1이 나옴
+                PERCENT_RANK() OVER (ORDER BY SAL) AS SAL_PERCENT_RANK
+            FROM
+                EMP;
+            
+            -- Result
+            | ENAME | SAL  | SAL_CUME_DIST | SAL_PERCENT_RANK |
+            |-------|------|---------------|------------------|
+            | SMITH | 800  | 0.2           | 0                |
+            | WARD  | 1250 | 0.4           | 0.25             |
+            | ALLEN | 1600 | 0.6           | 0.5              |
+            | BLAKE | 2850 | 0.8           | 0.75             |
+            | JONES | 2975 | 1             | 1                |
+            ```
+            
 
-- TOP N QUERY
-    - 페이징 처리를 효과적으로 수행하기 위해 사용
-    - 전체 결과에서 특정 N개 추출
+### TOP N QUERY
+
+- 페이징 처리를 효과적으로 수행하기 위해 사용
+- 전체 결과에서 특정 N개 추출
 
 - Top-N행 추출 방법
     - ROWNUM

@@ -1425,3 +1425,53 @@ ORDER BY {정렬 컬럼}
             # 4 ~ 6(4+2)개 출력
             FETCH FIRST 2 ROWS ONLY;
             ```
+            
+
+### 계층형 질의
+
+- 하나의 테이블 내 각 행 끼리 관계를 가질때, 연결 고리를 통해 **행과 행사이 계층을 표현함**
+- 가상 컬럼
+    - LEVEL : 댑스를 표현 (시작점 부터 1)
+    - CONNECT_BY_ISLEAF : LEAF NODE(최하위노드) 여부를 알려줌 :: ( 참 :1 , 거짓 : 0 )
+- 계층형 질의 가상 함수
+    - CONNECT_BY_ROOT 컬럼명 : 해당 노드의  **루트 노트값 출력**
+    - SYS_CONNECT_BY_PATH( 컬럼, 구분자 ): 이어지는 경로  출력
+    - ORDER SIBILING BY 컬럼 :  같은 LEVEL일 경우 정렬 수행
+- 주의사항
+    - **PRIOR**의 **위치에 따라** 연결하는 **데이터가 달라진다.**
+- 문법
+    
+    ```sql
+    SELECT
+    	FROM 테이블명
+    START WITH 시작조건           --- 시작점을 지정하는 조건
+    	CONNECT BY PRIOR 연결조건   --- 시작점 기준으로 하위 계급을 찾아가는 조건
+    ```
+    
+- 예시
+    
+    ```sql
+    # 각 부서의 레벨 출력
+    SELECT
+    	D.*, LEVEL
+    FROM DEPT2 D
+    # 시작이 될 조건 PDEPT 부모 부서번호는 최상위는 NULL이기에 조건 
+    START WITH PDEPT IN NULL
+    	# **PRIOR는 대상이 될 자식임!! = 부모의 코드와 같은것**
+    	CONNECT BY **PRIOR** DCODE = PDEPT;
+    
+    ##### 아래의 코드는 값이 사장실만 나옴!! PRIOR이 최상위 코드에 갔기 떄문에 이전이 없음!
+    ### 	CONNECT BY DCODE = **PRIOR** PDEPT;
+    ```
+    
+- 예시2 - 함정 문제
+    - 조건이 붙을 경우 **WHERE 조건이 아님!!** 따라서  하위 계층에는 영향이 갈 수 있으나 상위는 포함만 된다면 “서울”로해도 사장실이 나올 수 있음
+    
+    ```sql
+    SELECT
+    	D.*, LEVEL
+    FROM DEPT2 D
+    START WITH PDEPT IN NULL
+      # 서울 지사이지만 상위 부서가 인천이면 인천도 나옴!!
+    	CONNECT BY **PRIOR** DCODE = PDEPT AND AREA = '서울시자';
+    ```

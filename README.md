@@ -1,5 +1,3 @@
-# **SQLD 정리**
-
 ### 모델링의 개념
 
 - 현실 세계의 비지니스 프로세스와 데이터 요구 사항을 **추상적으로 구조화된 형태로 표현하는 과정**
@@ -1289,26 +1287,141 @@ ORDER BY {정렬 컬럼}
 
 ### TOP N QUERY
 
-- 페이징 처리를 효과적으로 수행하기 위해 사용
-- 전체 결과에서 특정 N개 추출
-
-- Top-N행 추출 방법
+- **페이징 처리**를 **효과적으로 수행**하기 위해 사용
+- 전체 결과에서 **특정 N개 추출**
+- **Top-N행 추출 방법**
     - ROWNUM
-        - 절대적 행번호가 아니라 출력대로 바뀌는 번호가 아님 따라서 EQUI 연산 사용 불가능
-        - 첫번째 행이 증가한 이후 할당 되므로 ‘>’ 연산 사용 불가 (0은 가능해)
-        - 포인트!! 1을 포함하지 않으면 조회가 불가능해!!
-        - ‘<=‘ 로는 조절해서 조회가능해
-            - EX) Select * FROM EMP WHERE ROW_NUMBER <= 5;
-        - 정렬 후 ROW_NUM으로 순위 뽑기는 불가능해 왜? Query 실행 순서 생각해봐
-        - 문제 발생
-            - 4 ~ 6 등인 애들만 뽑으려면 ??
-                - FROM절 서브쿼리를 사용해서 ROW_NUMBER를 AS RN으로 뺸 후 RN BETWEEN 4 AND 6 사용하자
+        - 절대적 행 번호가 아니라 **출력대로 바뀌는 번호이다.** 따라서 **EQUI** 연산 **사용 불가능**
+        - 첫번째 행이 증가한 이후 할당 되므로 **‘>’ 연산 사용 불가** (0은 가능해)
+        - **“=”** 또한 **사용 불가능**
+        - 🔥 **포인트**
+            - 1을 포함하지 않으면 **조회 불가능**
+        - **‘<=‘ 을 사용하면**  조회 가능
+            
+            ```sql
+            # 조회 가능 ⭕
+            Select * FROM EMP WHERE ROWNUM <= 5;
+            
+            # 조회 불가능 ❌
+            Select * FROM EMP WHERE ROWNUM = 5;
+            ```
+            
+        - **정렬 후 ROW_NUM으로 순위 뽑기**는 **불가능**해 하다
+            - **Query 실행 순서** 생각해보면 당연한 결과이다.
+            - 함정으로 내기 좋은 문제
+                - 예시
+                    
+                    ```sql
+                    # 급여 순위 1 ~ 5등 뽑기
+                    
+                    # 이건 당연히 안나옴 Order by는 가장 마지막임..
+                    SELECT
+                    	ENAME, SAL
+                    FROM EMP
+                    	WHERE ROWNUM <= 5
+                    ORDER BY SAL DESC;
+                    
+                    # 맞게 하려면?
+                    SELECT
+                    	* 
+                    FROM(
+                    	SELECT
+                    		*
+                    	FROM EMP
+                    		ORDER BY SAL DESC
+                    	) 
+                    WHERE ROWNUM <= 5
+                    ```
+                    
+            - 예시 - 응용문제
+                
+                ```sql
+                # 4 ~ 6등 ROW_NUMBER 사용 출력
+                
+                # 조회 불가능 ❌
+                SELECT 
+                	* 
+                FROM ( SELECT * FROM EMP ORDER BY SAL DESC )
+                  # 시작값 1을 건너뛴 후 그다음 행번호 출력이 불가능함
+                	WHERE ROWNUM BETWEEN 4 AND 6
+                ORDER BY SAL DESC;
+                
+                # 옳바른 사용법 💯
+                SELECT * 
+                FROM (
+                    SELECT 
+                        E.*, ROWNUM AS RN
+                    FROM (
+                        SELECT * FROM EMP ORDER BY SAL DESC
+                    ) E
+                )
+                WHERE RN BETWEEN 4 AND 6
+                ORDER BY SAL DESC;
+                ```
+                
     - RANK
         - 윈도우 함수 사용
-            - 4 ~ 6등을 원할 경우 AS RN 으로 빼내어서 사용하자
+            - 예시
+                
+                ```sql
+                SELECT
+                	* 
+                FROM (
+                    SELECT
+                				# 랭크를 사용해서 정렬 후 RANK란 이름으로 Alias 지정 
+                        E.*, RANK() OVER (ORDER BY SAL DESC) AS RANK
+                    FROM EMP E
+                )
+                	# Betweent을 사용하여 추출
+                	WHERE RANK BETWEEN 4 AND 6
+                ORDER BY SAL DESC;
+                ```
+                
     - FETCH
+        - 출력될 **행의 수를 제한**
+        - **Oracle 12C 이상**부터 제공
+        - SQL-SERVER 사용 가능
+        - ORDER BY절 **뒤에서 사용 함**
         - 문법
-            - SELECT
-            - 
-        - 예시로 보면 간단하다
-            - 1 ~ 5등
+            
+            ```sql
+            SELECT
+            	*
+            FROM 테이블
+            	WHERE ??
+            GROUP BY
+            	HAVING
+            ORDER BY
+            	# 지금부터 문법시작
+            	OFFSET 숫자 { ROW | ROWS }. --- 건너 뛸 행의 수 입력
+            FETCH { FIRST | NEXT } 숫자 { ROW | ROWS } ONLY;
+            ```
+            
+            - OFFSET : **건너 뛸 행의 수**
+            - FETCH : 출력할 **행의 수 전달**하는 구문
+            - FIRST : OFFSET을 쓰지 않을 경우 제외한 행 **다음부터 N행 출력** 명령
+            - ROW | ROWS : 행의 수의 따라 하나일 경우 단수, 여러값이면 복수형 ( **구분 크게 중요하지 않음** )
+        - 예시
+            
+            ```sql
+            # 급여 순서대로 상위 5명
+            SELECT
+            	ENAME, SAL
+            FROM EMP
+            	ORDER BY SAL DESC
+            # 스킵할 부분 없으니 OFFSET 제외
+            # 처음 ~ 5개 출력
+            FETCH FIRST 5 ROWS ONLY;
+            
+            ---------------------------------
+            
+            # 급여 순서대로 4 ~ 6등
+            SELECT
+            	ENAME, SAL
+            FROM EMP
+            	ORDER BY SAL DESC
+            # 4등 부터이기에 OFFSET 설정
+            OFFSET 3 ROW
+            # 4 ~ 6(4+2)개 출력
+            FETCH FIRST 2 ROWS ONLY;
+            ```

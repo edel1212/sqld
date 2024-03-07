@@ -1,3 +1,5 @@
+# **SQLD 정리**
+
 ### 모델링의 개념
 
 - 현실 세계의 비지니스 프로세스와 데이터 요구 사항을 **추상적으로 구조화된 형태로 표현하는 과정**
@@ -1475,3 +1477,52 @@ ORDER BY {정렬 컬럼}
       # 서울 지사이지만 상위 부서가 인천이면 인천도 나옴!!
     	CONNECT BY **PRIOR** DCODE = PDEPT AND AREA = '서울시자';
     ```
+    
+
+### PIVOIT 과 UNPIVOT
+
+- 데이터의 구조
+    - Long Data (Tidy data )
+        - 우리가 평소에 보는 RDB 데이터 그자체 잘 정규화된 **아래로 긴 데이터 구조**
+    - Wide Data
+        - 컬럼에 값을 넣고 Row마다 갯수 같은걸 넣어서 보기는 편하지만 Join에는 어려움
+        - **가로로 긴 ~ 형식**의 데이터 구조
+- PIVOT
+    - Long → Wide 데이터 **구조로 바꾸는 것**
+    - 사용 방법
+        - 쉽게 설명하면
+            - **맨 왼쪽** 세로 : Stack 컬럼
+            - **최 상단** 가로 : UnStack 컬럼
+            - **나머지 값**들 : Value 컬럼
+        - 중요 포인트
+            - FROM 절에 선언 된 컬럼 중 PIVOT에서 **UnStack, value에 쓰지 않은 컬럼**이 **모두 Stack이 되어** 버림
+                - 예시
+                    
+                    ```sql
+                    # ❌ Stack에 사용하지 않은 2개의 컬럼이 나와버리는 문제
+                    #    --- 너무 적어도 문제임 Unstack, value만 나옴...
+                    SELECT *
+                    	FROM 테이블 -- 컬럼이 4개있음
+                    # PIVOT 사용
+                    PIVOT ( VALUE count(컬럼1) FOR UNSTACK 컬럼명2 IN (값1,값2,값3) );
+                    ```
+                    
+        - 예시
+            
+            ```sql
+            # 직급별 사원 수
+            SELECT *
+            	# 포인트는 서브 쿼리를 사용해서 컬럼수를 제한 한것임!! 필요한 거만 딱 넣는게 포인트
+            	FROM ( SELECT EMPNO, JOB, DEPTNO FROM EMP )
+            # value는 사람의 합, Unstack의 값은 10,20,30인 애들로만 필터링
+            PIVOT ( VALUE SUM(EMPNO) FOR DEPTNO IN (10,20,30) );
+            ```
+            
+- UNPIVOT
+    - Wide → Long  데이터 **구조로 바꾸는 것**
+    - PIVOT과는 다르게 서브쿼리로 **컬럼 제한 필요 없음**
+    - 쉽게 설명
+        - 기존 Stack은 안바꿔도 되니 냅두고
+        - Value는 값이니 사용할 컬럼명 지정
+        - Unstack부분 또한  컬럼명 지정 후 사용 값 IN으로지정
+    - 예시

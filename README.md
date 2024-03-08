@@ -1,5 +1,3 @@
-# **SQLD 정리**
-
 ### 모델링의 개념
 
 - 현실 세계의 비지니스 프로세스와 데이터 요구 사항을 **추상적으로 구조화된 형태로 표현하는 과정**
@@ -307,7 +305,7 @@
         - 각 특정 컬럼에 NULL이 존재할 경우 평균을 구하려 할 경우
             - 그냥 AVG(CMM)를 사용하면 **NULL을 제외한 평균**이 계산 된다
             - SUM(CMM) / COUNT(*) 로 계산 할 경우 NULL을 포함한 **모든 인스턴스의 평균**이 나옴
-- COALESCE() 함수
+- **COALESCE()** 함수
     - 첫번째 NULL이 아닌 값을 반환 해주는 함수
     
     ```sql
@@ -489,6 +487,15 @@ ORDER BY {정렬 컬럼}
         OrderDate DATE,
         # CONSTRAINT 제약조건명  은 필수가 아님 옵션이다 자동으로 생성됨
         FOREIGN KEY (ProductID) REFERENCES Products(ProductID) ON DELETE CASCADE
+    );
+    
+    ---------------
+    CREATE TABLE Orders (
+        OrderID INT PRIMARY KEY,
+        ProductID INT,
+        OrderDate DATE,
+        # CONSTRAINT 제약조건명사용 !! 중요 포인트 : add를 붙이지 않음
+        CONSTRAINT FK_THAT FOREIGN KEY (ProductID) REFERENCES Products(ProductID) ON DELETE CASCADE
     );
     ```
     
@@ -1526,3 +1533,157 @@ ORDER BY {정렬 컬럼}
         - Value는 값이니 사용할 컬럼명 지정
         - Unstack부분 또한  컬럼명 지정 후 사용 값 IN으로지정
     - 예시
+        
+        ```sql
+        SELECT * 
+        	# 서브쿼리로 컬럼 제한 필요 없음
+        	FROM  EMP
+        # VALUE의 컬럼명 지정
+        UNPIVOT ( 개수
+        			# UnStack의 컬럼명 지정 후 사용 값 지정
+        			FOR 년도 IN ("2005","2020")
+        		 );
+        ```
+        
+
+### DCL
+
+- 권한 종류
+    - 오브젝트 권한
+        - 테이블에 대한 권한 제어
+            - 특정 테이블에 대한 **DML 권한**
+            - **테이블 소유자**는 타 계정에 대한 테이블  조회  및 수정 **권한 부여 및 회수 가능**
+    - 시스템 권한
+        - 시스템 작업(테이블 생성, 제거, 수정)등을 제어
+            - DDR제어
+        - **관리자 권한만** 부여 및 회수 가능
+- **GRANT**
+    - 권한 부여 시 반드시 테이블 소유자나 관리자 계정으로 접속하여 권한을 부여 해야함
+    - **동시에 여러 유저에 대한 권한 부여 가능**
+    - **동시에 여러 권한 부여 가능**
+    - 동시 여러 객체 **권한 부여 불가능**
+    - 문법
+        
+        ```sql
+        GRANT 권한 ON 테이블명 TO 유저;
+        ```
+        
+    - 예시 - 오브젝트 권한 부여 :  테이블 **관리 권한**이 있으면 부여 가능
+        
+        ```sql
+        # 고양이한테 급여 테이블 조회 권한주기
+        GRANT SELECT ON 급여 TO 고양이;
+        # 고양이, 강아지한테 급여 테이블 조회 권한 주기
+        GRANT SELECT ON 급여 TO 고양이, 강아지;
+        # 고양아한테 CRU 권한 주기
+        GRANT SELECT, INSERT, UPDATE ON 급여 TO 고양이;
+        # ❌ 여러 테이블 한번에는 불가능
+        GRANT SELECT ON 급여, 출퇴근이력 TO 고양이;
+        ```
+        
+    - 예시 - 시스템 권한 부여 :  **관리자 권한**이 있으면 부여 가능
+        
+        ```sql
+        # 테이블 생성 권한
+        GRANT CREATE TABLE TO 고양이;
+        # 고양이, 강아지한테 테이블 생성 권한
+        GRANT CREATE TABLE TO 고양이, 강아지;
+        # 테이블 생성, 삭제 권한 부여 
+        GRANT CREATE TABLE,  DROP ANY TABLE TO 강아지;
+        ```
+        
+- REVOKE
+    - 권한을 **회수**하는 명령어
+    - **동시**에 **여러 권한 회수** 가능
+    - 이미 회수된 권한 **재회 수 불가능**
+    - 동시 **여러 유저로 부터**의 **권한 회수 가능**
+    - 문법
+        
+        ```sql
+        # TO에서 FROM으로만 바뀌는거임
+        REVOKE 권한 ON 테이블명 FROM 유저명;
+        ```
+        
+    - 예시 - 오브젝트 권한 회수
+        
+        ```sql
+        REVOKE SELECT, UPDATE, INSERT ON 급여 FROM 강아지;
+        REVOKE SELECT ON 급여 FROM 고양이, 강아지;
+        # ❌ 에러발생 했던 회수 또하면 에러
+        REVOKE SELECT ON 급여 FROM 고양이, 강아지;
+        ```
+        
+- ROLE(롤)
+    - **권한**의 **묶음**이다
+    - SYSTEM 계정에서 생성 가능
+    - 즉시 적용이 안되므로 부여 후 해당 사용자 재 접속 필요
+    - **권한 부여**를 **한번에 하기** 위해 만든것이다!
+    - 사용방법
+        - 1 . 롤 생성
+            
+            ```sql
+            CREATE ROLE 롤이름;
+            ```
+            
+        - 2 . 롤에 사용할 권한 담기
+            
+            ```sql
+            GRANT SELECT ON EMP TO 롤이름;
+            GRANT SELECT ON STUDENT TO 롤이름;
+            GRANT SELECT ON ~~~ TO 롤이름;
+            ```
+            
+        - 3 . 사용자에게 롤 부여
+            
+            ```sql
+            GRANT 롤이름 TO 대상;
+            ```
+            
+        
+        ---
+        
+        - 롤에서 권한 뺴기
+            
+            ```sql
+            REVOKE SELECT ON DEPARTMENT FROM 롤이름;
+            ```
+            
+            - 포인트
+                - 바로 적용 가능
+                - 롤을 통해 권한을 부여하면 롤에서 권한을 빼야함 **대상에게 바로 권한 뻇기 불가능**
+    - 권한 부여 옵션
+        - WITH GRNAT OPTION ( 중간 관리자의 옵션 )
+            - WITH GRANT OPTION 으로 받은 **오브젝트 권한**을 **다른 사용자에게 부여할 수 있음**
+            - 중간관리자가 부여한 권한은 **중간 관리자만 회수 할 수 있음**
+            - 중간 관리자에게 부여된 **권한 회수** 시 제 3자에게 부여된 권한도 **함께 회수**
+            - 예시
+                
+                ```sql
+                -- SYS 계정에서 실행
+                GRANT SELECT ON SCOTT.EMP TO 유정호 WITH GRANT OPTION;
+                
+                -- 유정호 실행
+                GRANT SELECT ON SCOTT.EMP TO 흑곰;
+                
+                -- SYS 계정 회수 시도 ::: 실패
+                REVOKE SELECT ON  SCOTT.EMP FROM 흑곰;
+                ```
+                
+        - WITH ADMIN OPTION
+            - WITH ADMIN OPTION을 통해 부여받은 **시스템 권한 / 롤 권한을 다란사람에게 부여할 수있음**
+            - 중간 관리자를 거치지 않고 **제 3자 권한 직접 회수 가능**
+            - 중간 관리자 권한 회수 시 제 3자에게 부여된 권한 함께 회수 ❌
+            - 예시
+                
+                ```sql
+                -- SYS 계정에서 실행
+                GRANT CREATE ANY TABLE TO 유정호 WITH ADMIN OPTION;
+                GRANT ALTER ANY TABLE TO 유정호 WITH ADMIN OPTION;
+                
+                -- 유정호 실행
+                GRANT CREATE ANY TABLE ON SCOTT.EMP TO 흑곰;
+                
+                -- SYS 계정 회수 시도 ::: 성공
+                REVOKE CREATE ANY ON  SCOTT.EMP FROM 흑곰;
+                
+                ```
